@@ -1,6 +1,7 @@
 package com.myg.materialtetris.ui
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -51,34 +52,21 @@ fun GameBoard(
         val animatableY = remember { Animatable(-2f) }
         val animatableRotation = remember { Animatable(0f) }
 
-        fun normalizeAngle(angle: Float): Float {
-            var a = angle % 360f
-            if (a < 0) a += 360f
-            return a
-        }
-
-        LaunchedEffect(activePiece) {
-            if (activePiece == null) {
-                animatableX.snapTo(3f)
-                animatableY.snapTo(-2f)
-                animatableRotation.snapTo(0f)
-            } else {
+        // Position animations: only when x/y change
+        LaunchedEffect(activePiece?.x, activePiece?.y) {
+            if (activePiece != null) {
                 launch {
                     animatableX.animateTo(activePiece.x.toFloat(), tween(100))
                 }
                 launch {
-                    animatableY.animateTo(activePiece.y.toFloat(), tween(100))
+                    animatableY.animateTo(activePiece.y.toFloat(), spring(stiffness = 500f))
+                }
+            } else {
+                launch {
+                    animatableX.snapTo(3f)
                 }
                 launch {
-                    val current = normalizeAngle(animatableRotation.value)
-                    val targetRotation = normalizeAngle(activePiece.rotation * 90f)
-                    var diff = targetRotation - current
-                    if (diff > 180f) diff -= 360f
-                    if (diff < -180f) diff += 360f
-                    val finalTarget = current + diff
-                    animatableRotation.snapTo(current) // Asegura que el valor esté normalizado
-                    animatableRotation.animateTo(finalTarget, tween(200))
-                    animatableRotation.snapTo(normalizeAngle(finalTarget)) // Mantén el valor en [0,360)
+                    animatableY.snapTo(-2f)
                 }
             }
         }

@@ -54,6 +54,7 @@ fun GameScreen(
     var accumulatedDragX by remember { mutableStateOf(0f) }
     var accumulatedDragY by remember { mutableStateOf(0f) }
     var canRotate by remember { mutableStateOf(true) }
+    var isDraggingHorizontally by remember { mutableStateOf<Boolean?>(null) }
 
     val gameModifier = Modifier.pointerInput(Unit) {
         detectDragGestures(
@@ -61,23 +62,33 @@ fun GameScreen(
                 accumulatedDragX = 0f
                 accumulatedDragY = 0f
                 canRotate = true
+                isDraggingHorizontally = null
             },
             onDrag = { change, dragAmount ->
                 change.consume()
                 accumulatedDragX += dragAmount.x
                 accumulatedDragY += dragAmount.y
 
-                if (abs(accumulatedDragX) > 40f) {
-                    gameViewModel.movePiece(if (accumulatedDragX > 0) 1 else -1, 0)
-                    accumulatedDragX = 0f
+                if (isDraggingHorizontally == null) {
+                    val threshold = 20f
+                    if (abs(accumulatedDragX) > threshold || abs(accumulatedDragY) > threshold) {
+                        isDraggingHorizontally = abs(accumulatedDragX) > abs(accumulatedDragY)
+                    }
                 }
 
-                if (accumulatedDragY > 40f) {
-                    gameViewModel.movePiece(0, 1)
-                    accumulatedDragY = 0f
-                } else if (accumulatedDragY < -40f && canRotate) {
-                    gameViewModel.rotatePiece()
-                    canRotate = false
+                if (isDraggingHorizontally == true) {
+                    if (abs(accumulatedDragX) > 40f) {
+                        gameViewModel.movePiece(if (accumulatedDragX > 0) 1 else -1, 0)
+                        accumulatedDragX = 0f
+                    }
+                } else if (isDraggingHorizontally == false) {
+                    if (accumulatedDragY > 40f) {
+                        gameViewModel.movePiece(0, 1)
+                        accumulatedDragY = 0f
+                    } else if (accumulatedDragY < -40f && canRotate) {
+                        gameViewModel.rotatePiece()
+                        canRotate = false
+                    }
                 }
             }
         )

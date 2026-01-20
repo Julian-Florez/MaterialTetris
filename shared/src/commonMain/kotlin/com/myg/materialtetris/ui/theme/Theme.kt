@@ -1,6 +1,7 @@
 package com.myg.materialtetris.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
@@ -17,6 +18,9 @@ internal val LightColorScheme = lightColorScheme(
     secondary = PurpleGrey40,
     tertiary = Pink40
 )
+
+@Composable
+internal expect fun getPlatformColorScheme(darkTheme: Boolean): ColorScheme?
 
 @Composable
 fun MaterialTetrisTheme(

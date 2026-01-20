@@ -1,6 +1,5 @@
 package com.myg.materialtetris.ui.theme
 
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
@@ -29,13 +28,5 @@ data class TetrisColors(
 
 @Composable
 fun getTetrisColors(): TetrisColors {
-    return TetrisColors(
-        color1 = MaterialTheme.colorScheme.primary,
-        color2 = MaterialTheme.colorScheme.secondary,
-        color3 = MaterialTheme.colorScheme.tertiary,
-        color4 = MaterialTheme.colorScheme.primaryContainer,
-        color5 = MaterialTheme.colorScheme.secondaryContainer,
-        color6 = MaterialTheme.colorScheme.tertiaryContainer,
-        color7 = MaterialTheme.colorScheme.surface
-    )
+    return getPlatformTetrisColors()
 }
