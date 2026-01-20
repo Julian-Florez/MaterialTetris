@@ -1,0 +1,10 @@
+INSTRUCTIONS FOR ICONS:
+
+1. Window Icon (Taskbar/Titlebar):
+   - Place a PNG file named 'icon.png' in this folder (desktop/src/desktopMain/resources/).
+   
+2. Executable/Installer Icon (Windows .exe/.msi):
+   - Place an ICO file named 'icon.ico' in this folder (desktop/src/desktopMain/resources/).
+   - You can convert your png to ico using online tools like convertico.com.
+   
+Note: The 'icon.png' is used by the running application window. The 'icon.ico' is used by the Windows installer and the file explorer icon.
