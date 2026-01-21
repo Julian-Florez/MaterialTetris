@@ -14,23 +14,15 @@ internal actual fun getPlatformTetrisColors(): TetrisColors {
         getColorForTone(context, it)
     }
 
-//    return TetrisColors(
-//        color1 = colors[0],
-//        color2 = colors[1],
-//        color3 = colors[2],
-//        color4 = colors[3],
-//        color5 = colors[4],
-//        color6 = colors[5],
-//        color7 = colors[6]
-//    )
+
     return TetrisColors(
-        color1 = colors[0].copy(alpha = 0.5f),
-        color2 = colors[1].copy(alpha = 0.5f),
-        color3 = colors[2].copy(alpha = 0.5f),
-        color4 = colors[3].copy(alpha = 0.5f),
-        color5 = colors[4].copy(alpha = 0.5f),
-        color6 = colors[5].copy(alpha = 0.5f),
-        color7 = colors[6].copy(alpha = 0.5f)
+        color1 = colors[0],
+        color2 = colors[1],
+        color3 = colors[2],
+        color4 = colors[3],
+        color5 = colors[4],
+        color6 = colors[5],
+        color7 = colors[6]
     )
 }
 

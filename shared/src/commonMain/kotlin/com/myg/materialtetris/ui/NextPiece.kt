@@ -14,7 +14,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.translate
@@ -34,9 +37,15 @@ fun NextPiece(piece: Tetromino?, modifier: Modifier = Modifier) {
             contentAlignment = Alignment.Center
         ) {
             val tetrisColors = getTetrisColors()
+            // backgroundColor must be read in a @Composable context (outside the Canvas drawing lambda)
+            val backgroundColor = MaterialTheme.colorScheme.surfaceVariant
+
             Canvas(modifier = Modifier.size(48.dp)) {
                 piece?.let {
                     val cellSize = size.width / 4
+
+                    // pieceCornerRadius used both for underlay sizing and block corner radii
+                    val pieceCornerRadius = cellSize * 0.35f
 
                     var minR = Int.MAX_VALUE
                     var maxR = Int.MIN_VALUE
@@ -65,14 +74,62 @@ fun NextPiece(piece: Tetromino?, modifier: Modifier = Modifier) {
                             top = offsetY - minR * cellSize
                         ) {
                             val color = tetrisColors.getColor(it.type)
-                            drawTetrominoPiece(it, cellSize, color)
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
+
+                            // FIRST: draw corner underlays for preview piece so corners are always under blocks
+                            val getShapeBlock = { row: Int, col: Int ->
+                                it.shape.getOrNull(row)?.getOrNull(col)?.let { it > 0 } ?: false
+                            }
+                            for (rr in it.shape.indices) {
+                                for (cc in it.shape[rr].indices) {
+                                    if (it.shape[rr][cc] > 0) {
+                                        val hasTop = getShapeBlock(rr - 1, cc)
+                                        val hasBottom = getShapeBlock(rr + 1, cc)
+                                        val hasLeft = getShapeBlock(rr, cc - 1)
+                                        val hasRight = getShapeBlock(rr, cc + 1)
+                                        val hasTopLeft = getShapeBlock(rr - 1, cc - 1)
+                                        val hasTopRight = getShapeBlock(rr - 1, cc + 1)
+                                        val hasBottomLeft = getShapeBlock(rr + 1, cc - 1)
+                                        val hasBottomRight = getShapeBlock(rr + 1, cc + 1)
+
+                                        // compute neighbor colors for preview: use piece color when neighbor present, otherwise background
+                                        val neighborTopColor = if (hasTop) color else backgroundColor
+                                        val neighborBottomColor = if (hasBottom) color else backgroundColor
+                                        val neighborLeftColor = if (hasLeft) color else backgroundColor
+                                        val neighborRightColor = if (hasRight) color else backgroundColor
+
+                                        drawCornerUnderlay(
+                                            x = cc * cellSize,
+                                            y = rr * cellSize,
+                                            cellSize = cellSize,
+                                            color = color,
+                                            cornerRadius = pieceCornerRadius,
+                                            hasTop = hasTop,
+                                            hasBottom = hasBottom,
+                                            hasLeft = hasLeft,
+                                            hasRight = hasRight,
+                                            hasTopLeft = hasTopLeft,
+                                            hasTopRight = hasTopRight,
+                                            hasBottomLeft = hasBottomLeft,
+                                            hasBottomRight = hasBottomRight,
+                                            colorTop = neighborTopColor,
+                                            colorBottom = neighborBottomColor,
+                                            colorLeft = neighborLeftColor,
+                                            colorRight = neighborRightColor,
+                                            backgroundColor = backgroundColor
+                                        )
+                                     }
+                                 }
+                             }
+
+                             // Then draw the preview piece on top
+                             drawTetrominoPiece(it, cellSize, color)
+                         }
+                     }
+                 }
+             }
+         }
+     }
+ }
 
 private fun DrawScope.drawTetrominoPiece(
     piece: Tetromino,
@@ -176,5 +233,127 @@ private fun DrawScope.drawPieceBlock(
             arcTo(Rect(newX + newCellSize - newCornerRadius, newY + newCellSize - newCornerRadius, newX + newCellSize + newCornerRadius, newY + newCellSize + newCornerRadius), 270f, 90f, false)
             close()
         }, color = color)
+    }
+}
+
+// Helper: draw corner underlay (rect outside + quarter-circle of background)
+@Suppress("UNUSED_PARAMETER")
+private fun DrawScope.drawCornerUnderlay(
+    x: Float,
+    y: Float,
+    cellSize: Float,
+    color: Color,
+    cornerRadius: Float,
+    hasTop: Boolean,
+    hasBottom: Boolean,
+    hasLeft: Boolean,
+    hasRight: Boolean,
+    hasTopLeft: Boolean,
+    hasTopRight: Boolean,
+    hasBottomLeft: Boolean,
+    hasBottomRight: Boolean,
+    colorTop: Color,
+    colorBottom: Color,
+    colorLeft: Color,
+    colorRight: Color,
+    backgroundColor: Color
+) {
+     val overlap = 1f
+     val newCellSize = cellSize + overlap
+     val newX = x - overlap / 2
+     val newY = y - overlap / 2
+     val newCornerRadius = cornerRadius * (newCellSize / cellSize)
+
+     val arcScale = 2.0f
+     val arcRadius = newCornerRadius * arcScale
+     val smallRectSize = Size(arcRadius / 2f, arcRadius / 2f)
+
+    if (hasTop && hasLeft && !hasTopLeft) {
+        val rectTopLeftTL = Offset(newX - smallRectSize.width, newY - smallRectSize.height)
+        // move rectangle 1px diagonally inward (right/down)
+        val rectTopLeftTLInset = Offset(rectTopLeftTL.x + 1f, rectTopLeftTL.y + 1f)
+        val start = rectTopLeftTLInset + Offset(smallRectSize.width / 2f, 0f)
+        val end = rectTopLeftTLInset + Offset(0f, smallRectSize.height / 2f)
+        if (colorTop == colorLeft) {
+            drawRect(color = colorTop, topLeft = rectTopLeftTLInset, size = smallRectSize)
+        } else {
+            val brush = Brush.linearGradient(listOf(colorTop, colorLeft), start = start, end = end)
+            drawRect(brush = brush, topLeft = rectTopLeftTLInset, size = smallRectSize)
+        }
+
+        drawArc(
+            color = backgroundColor,
+            startAngle = 0f,
+            sweepAngle = 90f,
+            useCenter = true,
+            topLeft = Offset(newX - arcRadius, newY - arcRadius),
+            size = Size(arcRadius, arcRadius)
+        )
+    }
+    if (hasTop && hasRight && !hasTopRight) {
+        val rectTopLeftTR = Offset(newX + newCellSize, newY - smallRectSize.height)
+        // move rectangle 1px diagonally inward (left/down)
+        val rectTopLeftTRInset = Offset(rectTopLeftTR.x - 1f, rectTopLeftTR.y + 1f)
+        val start = rectTopLeftTRInset + Offset(smallRectSize.width / 2f, 0f)
+        val end = rectTopLeftTRInset + Offset(smallRectSize.width, smallRectSize.height / 2f)
+        if (colorTop == colorRight) {
+            drawRect(color = colorTop, topLeft = rectTopLeftTRInset, size = smallRectSize)
+        } else {
+            val brush = Brush.linearGradient(listOf(colorTop, colorRight), start = start, end = end)
+            drawRect(brush = brush, topLeft = rectTopLeftTRInset, size = smallRectSize)
+        }
+
+        drawArc(
+            color = backgroundColor,
+            startAngle = 90f,
+            sweepAngle = 90f,
+            useCenter = true,
+            topLeft = Offset(newX + newCellSize, newY - arcRadius),
+            size = Size(arcRadius, arcRadius)
+        )
+    }
+    if (hasBottom && hasLeft && !hasBottomLeft) {
+        val rectTopLeftBL = Offset(newX - smallRectSize.width, newY + newCellSize)
+        // move rectangle 1px diagonally inward (right/up)
+        val rectTopLeftBLInset = Offset(rectTopLeftBL.x + 1f, rectTopLeftBL.y - 1f)
+        val start = rectTopLeftBLInset + Offset(smallRectSize.width / 2f, smallRectSize.height)
+        val end = rectTopLeftBLInset + Offset(0f, smallRectSize.height / 2f)
+        if (colorBottom == colorLeft) {
+            drawRect(color = colorBottom, topLeft = rectTopLeftBLInset, size = smallRectSize)
+        } else {
+            val brush = Brush.linearGradient(listOf(colorBottom, colorLeft), start = start, end = end)
+            drawRect(brush = brush, topLeft = rectTopLeftBLInset, size = smallRectSize)
+        }
+
+        drawArc(
+            color = backgroundColor,
+            startAngle = 270f,
+            sweepAngle = 90f,
+            useCenter = true,
+            topLeft = Offset(newX - arcRadius, newY + newCellSize),
+            size = Size(arcRadius, arcRadius)
+        )
+    }
+    if (hasBottom && hasRight && !hasBottomRight) {
+        val rectTopLeftBR = Offset(newX + newCellSize, newY + newCellSize)
+        // move rectangle 1px diagonally inward (left/up)
+        val rectTopLeftBRInset = Offset(rectTopLeftBR.x - 1f, rectTopLeftBR.y - 1f)
+        val start = rectTopLeftBRInset + Offset(smallRectSize.width / 2f, smallRectSize.height)
+        val end = rectTopLeftBRInset + Offset(smallRectSize.width, smallRectSize.height / 2f)
+        if (colorBottom == colorRight) {
+            drawRect(color = colorBottom, topLeft = rectTopLeftBRInset, size = smallRectSize)
+        } else {
+            val brush = Brush.linearGradient(listOf(colorBottom, colorRight), start = start, end = end)
+            drawRect(brush = brush, topLeft = rectTopLeftBRInset, size = smallRectSize)
+        }
+
+        drawArc(
+            color = backgroundColor,
+            startAngle = 180f,
+            sweepAngle = 90f,
+            useCenter = true,
+            topLeft = Offset(newX + newCellSize, newY + newCellSize),
+            size = Size(arcRadius, arcRadius)
+        )
     }
 }

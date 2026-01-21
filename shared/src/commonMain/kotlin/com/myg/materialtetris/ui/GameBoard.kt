@@ -20,6 +20,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
@@ -73,14 +74,119 @@ fun GameBoard(
                 val cellSize = size.width / BOARD_WIDTH
                 val pieceCornerRadius = cellSize * 0.35f
 
-                // Draw the locked pieces (single pass)
+                // helper to access board safely from anywhere inside Canvas
+                val getBoard = { ri: Int, ci: Int -> board.getOrNull(ri)?.getOrNull(ci) ?: 0 }
+
+                // FIRST PASS: draw corner underlays (rect + quarter-circle) for all cells (locked + active)
+                // Locked pieces underlays
                 for (r in board.indices) {
                     for (c in board[r].indices) {
                         if (board[r][c] > 0) {
                             val type = board[r][c]
                             val color = tetrisColors.getColor(type)
 
-                            val getBoard = { ri: Int, ci: Int -> board.getOrNull(ri)?.getOrNull(ci) ?: 0 }
+                            val hasTop = getBoard(r - 1, c) > 0
+                            val hasBottom = getBoard(r + 1, c) > 0 || r == board.lastIndex
+                            val hasLeft = getBoard(r, c - 1) > 0 || c == 0
+                            val hasRight = getBoard(r, c + 1) > 0 || c == board[r].lastIndex
+                            val hasTopLeft = getBoard(r - 1, c - 1) > 0
+                            val hasTopRight = getBoard(r - 1, c + 1) > 0
+                            val hasBottomLeft = getBoard(r + 1, c - 1) > 0
+                            val hasBottomRight = getBoard(r + 1, c + 1) > 0
+
+                            // neighbor colors
+                            val topColor = tetrisColors.getColor(getBoard(r - 1, c))
+                            val bottomColor = tetrisColors.getColor(getBoard(r + 1, c))
+                            val leftColor = tetrisColors.getColor(getBoard(r, c - 1))
+                            val rightColor = tetrisColors.getColor(getBoard(r, c + 1))
+
+                            drawCornerUnderlay(
+                                x = c * cellSize,
+                                y = r * cellSize,
+                                cellSize = cellSize,
+                                color = color,
+                                cornerRadius = pieceCornerRadius,
+                                hasTop = hasTop,
+                                hasBottom = hasBottom,
+                                hasLeft = hasLeft,
+                                hasRight = hasRight,
+                                hasTopLeft = hasTopLeft,
+                                hasTopRight = hasTopRight,
+                                hasBottomLeft = hasBottomLeft,
+                                hasBottomRight = hasBottomRight,
+                                colorTop = topColor,
+                                colorBottom = bottomColor,
+                                colorLeft = leftColor,
+                                colorRight = rightColor,
+                                backgroundColor = gridColor
+                            )
+                        }
+                    }
+                }
+
+                // Active piece underlays (draw translated so they match active position)
+                activePiece?.let { piece ->
+                    val color = tetrisColors.getColor(piece.type)
+                    translate(left = animatableX.value * cellSize, top = animatableY.value * cellSize) {
+                        for (r in piece.shape.indices) {
+                            for (c in piece.shape[r].indices) {
+                                if (piece.shape[r][c] > 0) {
+                                    val getShapeBlock = { row: Int, col: Int ->
+                                        piece.shape.getOrNull(row)?.getOrNull(col)?.let { it > 0 } ?: false
+                                    }
+                                    val hasTop = getShapeBlock(r - 1, c)
+                                    val hasBottom = getShapeBlock(r + 1, c)
+                                    val hasLeft = getShapeBlock(r, c - 1)
+                                    val hasRight = getShapeBlock(r, c + 1)
+                                    val hasTopLeft = getShapeBlock(r - 1, c - 1)
+                                    val hasTopRight = getShapeBlock(r - 1, c + 1)
+                                    val hasBottomLeft = getShapeBlock(r + 1, c - 1)
+                                    val hasBottomRight = getShapeBlock(r + 1, c + 1)
+
+                                    // compute neighbor colors: prefer piece neighbor if present, otherwise board
+                                    val globalR = piece.y + r
+                                    val globalC = piece.x + c
+                                    val topType = if (getShapeBlock(r - 1, c)) piece.type else getBoard(globalR - 1, globalC)
+                                    val bottomType = if (getShapeBlock(r + 1, c)) piece.type else getBoard(globalR + 1, globalC)
+                                    val leftType = if (getShapeBlock(r, c - 1)) piece.type else getBoard(globalR, globalC - 1)
+                                    val rightType = if (getShapeBlock(r, c + 1)) piece.type else getBoard(globalR, globalC + 1)
+                                    val topColor = tetrisColors.getColor(topType)
+                                    val bottomColor = tetrisColors.getColor(bottomType)
+                                    val leftColor = tetrisColors.getColor(leftType)
+                                    val rightColor = tetrisColors.getColor(rightType)
+
+                                    drawCornerUnderlay(
+                                        x = c * cellSize,
+                                        y = r * cellSize,
+                                        cellSize = cellSize,
+                                        color = color,
+                                        cornerRadius = pieceCornerRadius,
+                                        hasTop = hasTop,
+                                        hasBottom = hasBottom,
+                                        hasLeft = hasLeft,
+                                        hasRight = hasRight,
+                                        hasTopLeft = hasTopLeft,
+                                        hasTopRight = hasTopRight,
+                                        hasBottomLeft = hasBottomLeft,
+                                        hasBottomRight = hasBottomRight,
+                                        colorTop = topColor,
+                                        colorBottom = bottomColor,
+                                        colorLeft = leftColor,
+                                        colorRight = rightColor,
+                                        backgroundColor = gridColor
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // Draw the locked pieces (single pass)
+                for (r in board.indices) {
+                    for (c in board[r].indices) {
+                        if (board[r][c] > 0) {
+                            val type = board[r][c]
+                            val color = tetrisColors.getColor(type)
 
                             val hasTop = getBoard(r - 1, c) > 0
                             val hasBottom = getBoard(r + 1, c) > 0 || r == board.lastIndex
@@ -100,29 +206,27 @@ fun GameBoard(
                                 hasTop = hasTop,
                                 hasBottom = hasBottom,
                                 hasLeft = hasLeft,
-                                hasRight = hasRight,
-                                hasTopLeft = hasTopLeft,
-                                hasTopRight = hasTopRight,
-                                hasBottomLeft = hasBottomLeft,
-                                hasBottomRight = hasBottomRight,
-                                backgroundColor = gridColor
+                                hasRight = hasRight
                             )
                         }
                     }
                 }
 
-                // Draw the active piece with animation
+                // Draw the active piece on top
                 activePiece?.let { piece ->
                     val color = tetrisColors.getColor(piece.type)
                     translate(
                         left = animatableX.value * cellSize,
                         top = animatableY.value * cellSize
                     ) {
-                        drawTetrominoPiece(piece, cellSize, color, backgroundColor = gridColor)
+                        drawTetrominoPiece(piece, cellSize, color)
                     }
                 }
+
+                // end of Canvas drawing
             }
 
+            // Overlay for game over must be a composable call outside Canvas (DrawScope)
             if (isGameOver) {
                 Box(
                     modifier = Modifier
@@ -144,8 +248,7 @@ fun GameBoard(
 private fun DrawScope.drawTetrominoPiece(
     piece: Tetromino,
     cellSize: Float,
-    color: Color,
-    backgroundColor: Color
+    color: Color
 ) {
     val pieceCornerRadius = cellSize * 0.35f
     for (r in piece.shape.indices) {
@@ -172,12 +275,7 @@ private fun DrawScope.drawTetrominoPiece(
                     hasTop = hasTop,
                     hasBottom = hasBottom,
                     hasLeft = hasLeft,
-                    hasRight = hasRight,
-                    hasTopLeft = hasTopLeft,
-                    hasTopRight = hasTopRight,
-                    hasBottomLeft = hasBottomLeft,
-                    hasBottomRight = hasBottomRight,
-                    backgroundColor = backgroundColor
+                    hasRight = hasRight
                 )
             }
         }
@@ -193,12 +291,7 @@ private fun DrawScope.drawPieceBlock(
     hasTop: Boolean,
     hasBottom: Boolean,
     hasLeft: Boolean,
-    hasRight: Boolean,
-    hasTopLeft: Boolean,
-    hasTopRight: Boolean,
-    hasBottomLeft: Boolean,
-    hasBottomRight: Boolean,
-    backgroundColor: Color
+    hasRight: Boolean
 ) {
     val overlap = 1f
     val newCellSize = cellSize + overlap
@@ -223,16 +316,54 @@ private fun DrawScope.drawPieceBlock(
     }
     drawPath(path, color)
 
-    // Increase quarter-circle size slightly and align them so the arc's inner corner
-    // still meets the block corner. Use backgroundColor for the quarter-circles and draw a small rect outside.
+    // Previously this function also drew small rects and quarter-circle arcs for convex corners.
+    // That drawing now happens exclusively in drawCornerUnderlay (first pass) so the block drawing
+    // doesn't duplicate or overlay those underlays.
+}
+
+@Suppress("UNUSED_PARAMETER")
+private fun DrawScope.drawCornerUnderlay(
+    x: Float,
+    y: Float,
+    cellSize: Float,
+    color: Color,
+    cornerRadius: Float,
+    hasTop: Boolean,
+    hasBottom: Boolean,
+    hasLeft: Boolean,
+    hasRight: Boolean,
+    hasTopLeft: Boolean,
+    hasTopRight: Boolean,
+    hasBottomLeft: Boolean,
+    hasBottomRight: Boolean,
+    colorTop: Color,
+    colorBottom: Color,
+    colorLeft: Color,
+    colorRight: Color,
+    backgroundColor: Color
+) {
+    val overlap = 1f
+    val newCellSize = cellSize + overlap
+    val newX = x - overlap / 2
+    val newY = y - overlap / 2
+    val newCornerRadius = cornerRadius * (newCellSize / cellSize)
+
     val arcScale = 2.0f
     val arcRadius = newCornerRadius * arcScale
-
     val smallRectSize = Size(arcRadius / 2f, arcRadius / 2f)
 
     if (hasTop && hasLeft && !hasTopLeft) {
         val rectTopLeftTL = Offset(newX - smallRectSize.width, newY - smallRectSize.height)
-        drawRect(color = color, topLeft = rectTopLeftTL, size = smallRectSize)
+        // move rectangle 1px diagonally inward (right/down)
+        val rectTopLeftTLInset = Offset(rectTopLeftTL.x + 1f, rectTopLeftTL.y + 1f)
+        val start = rectTopLeftTLInset + Offset(smallRectSize.width / 2f, 0f)
+        val end = rectTopLeftTLInset + Offset(0f, smallRectSize.height / 2f)
+        if (colorTop == colorLeft) {
+            drawRect(color = colorTop, topLeft = rectTopLeftTLInset, size = smallRectSize)
+        } else {
+            val brush = Brush.linearGradient(listOf(colorTop, colorLeft), start = start, end = end)
+            drawRect(brush = brush, topLeft = rectTopLeftTLInset, size = smallRectSize)
+        }
 
         drawArc(
             color = backgroundColor,
@@ -245,7 +376,16 @@ private fun DrawScope.drawPieceBlock(
     }
     if (hasTop && hasRight && !hasTopRight) {
         val rectTopLeftTR = Offset(newX + newCellSize, newY - smallRectSize.height)
-        drawRect(color = color, topLeft = rectTopLeftTR, size = smallRectSize)
+        // move rectangle 1px diagonally inward (left/down)
+        val rectTopLeftTRInset = Offset(rectTopLeftTR.x - 1f, rectTopLeftTR.y + 1f)
+        val start = rectTopLeftTRInset + Offset(smallRectSize.width / 2f, 0f)
+        val end = rectTopLeftTRInset + Offset(smallRectSize.width, smallRectSize.height / 2f)
+        if (colorTop == colorRight) {
+            drawRect(color = colorTop, topLeft = rectTopLeftTRInset, size = smallRectSize)
+        } else {
+            val brush = Brush.linearGradient(listOf(colorTop, colorRight), start = start, end = end)
+            drawRect(brush = brush, topLeft = rectTopLeftTRInset, size = smallRectSize)
+        }
 
         drawArc(
             color = backgroundColor,
@@ -258,7 +398,16 @@ private fun DrawScope.drawPieceBlock(
     }
     if (hasBottom && hasLeft && !hasBottomLeft) {
         val rectTopLeftBL = Offset(newX - smallRectSize.width, newY + newCellSize)
-        drawRect(color = color, topLeft = rectTopLeftBL, size = smallRectSize)
+        // move rectangle 1px diagonally inward (right/up)
+        val rectTopLeftBLInset = Offset(rectTopLeftBL.x + 1f, rectTopLeftBL.y - 1f)
+        val start = rectTopLeftBLInset + Offset(smallRectSize.width / 2f, smallRectSize.height)
+        val end = rectTopLeftBLInset + Offset(0f, smallRectSize.height / 2f)
+        if (colorBottom == colorLeft) {
+            drawRect(color = colorBottom, topLeft = rectTopLeftBLInset, size = smallRectSize)
+        } else {
+            val brush = Brush.linearGradient(listOf(colorBottom, colorLeft), start = start, end = end)
+            drawRect(brush = brush, topLeft = rectTopLeftBLInset, size = smallRectSize)
+        }
 
         drawArc(
             color = backgroundColor,
@@ -271,7 +420,16 @@ private fun DrawScope.drawPieceBlock(
     }
     if (hasBottom && hasRight && !hasBottomRight) {
         val rectTopLeftBR = Offset(newX + newCellSize, newY + newCellSize)
-        drawRect(color = color, topLeft = rectTopLeftBR, size = smallRectSize)
+        // move rectangle 1px diagonally inward (left/up)
+        val rectTopLeftBRInset = Offset(rectTopLeftBR.x - 1f, rectTopLeftBR.y - 1f)
+        val start = rectTopLeftBRInset + Offset(smallRectSize.width / 2f, smallRectSize.height)
+        val end = rectTopLeftBRInset + Offset(smallRectSize.width, smallRectSize.height / 2f)
+        if (colorBottom == colorRight) {
+            drawRect(color = colorBottom, topLeft = rectTopLeftBRInset, size = smallRectSize)
+        } else {
+            val brush = Brush.linearGradient(listOf(colorBottom, colorRight), start = start, end = end)
+            drawRect(brush = brush, topLeft = rectTopLeftBRInset, size = smallRectSize)
+        }
 
         drawArc(
             color = backgroundColor,
