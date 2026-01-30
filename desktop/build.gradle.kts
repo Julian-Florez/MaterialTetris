@@ -13,6 +13,10 @@ kotlin {
         val desktopMain by getting {
             dependencies {
                 implementation(project(":shared"))
+                implementation(compose.desktop.currentOs)
+                // Añadir Material3 y UI para el módulo desktop
+                implementation(compose.material3)
+                implementation(compose.ui)
             }
         }
     }

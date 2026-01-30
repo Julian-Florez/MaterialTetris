@@ -34,9 +34,27 @@ private fun parseColorsFromFile(file: File): Map<String, Color> {
         if (trimmedLine.startsWith("---")) continue 
 
         if (!isTable) {
-            val parts = trimmedLine.split("=")
-            if (parts.size == 2) {
-                colors[parts[0].trim()] = parseColor(parts[1].trim())
+            // Support both single "key=value" per line and multiple pairs on the same line separated by whitespace
+            // e.g. "primary=#FFFFA44E onPrimary=#FF552C00 primaryContainer=#FFFE8F00"
+            val tokens = trimmedLine.split(Regex("\\s+"))
+            for (token in tokens) {
+                if (token.isBlank()) continue
+                val kv = token.split("=")
+                if (kv.size == 2) {
+                    val key = kv[0].trim()
+                    val value = kv[1].trim()
+                    // Ignore malformed values
+                    if (key.isNotEmpty() && value.isNotEmpty()) {
+                        colors[key] = parseColor(value)
+                    }
+                } else if (kv.size > 2) {
+                    // Rare case: value contains '=' (unlikely for colors), join the rest back
+                    val key = kv[0].trim()
+                    val value = kv.subList(1, kv.size).joinToString("=").trim()
+                    if (key.isNotEmpty() && value.isNotEmpty()) {
+                        colors[key] = parseColor(value)
+                    }
+                }
             }
         } else {
             // Table parsing
@@ -48,6 +66,11 @@ private fun parseColorsFromFile(file: File): Map<String, Color> {
                 if (parts.size > 1) {
                     colors["system_accent1_$tone"] = parseColor(parts[1].trim())
                 }
+                // Also parse additional accents and neutrals if present
+                if (parts.size > 2) colors["system_accent2_$tone"] = parseColor(parts[2].trim())
+                if (parts.size > 3) colors["system_accent3_$tone"] = parseColor(parts[3].trim())
+                if (parts.size > 4) colors["system_neutral1_$tone"] = parseColor(parts[4].trim())
+                if (parts.size > 5) colors["system_neutral2_$tone"] = parseColor(parts[5].trim())
             }
         }
     }
@@ -123,18 +146,43 @@ private fun parseColor(colorString: String): Color {
 }
 
 @Composable
-actual fun getTetrisColors(): Pair<Color, Color> {
+actual fun getPlatformTetrisColors(): TetrisColors {
     val colorScheme = MaterialTheme.colorScheme
-    return remember {
-        val file = File("C:\\Program Files\\MaterialYouWindows\\colors")
-        val colors = parseColorsFromFile(file)
-        
-        if (colors.isNotEmpty()) {
-            val c600 = colors["system_accent1_600"] ?: colors["primary"] ?: colorScheme.primary
-            val c500 = colors["system_accent1_500"] ?: colors["secondary"] ?: colorScheme.secondary
-            c600 to c500
-        } else {
-            colorScheme.primary to colorScheme.secondary
-        }
+    val file = File("C:\\Program Files\\MaterialYouWindows\\colors")
+    val colors = parseColorsFromFile(file)
+
+    return if (colors.isNotEmpty()) {
+        val accent200 = colors["system_accent1_200"] ?: colorScheme.primaryContainer
+        val accent300 = colors["system_accent1_300"] ?: colorScheme.primary
+        val accent400 = colors["system_accent1_400"] ?: colorScheme.primary
+        val accent500 = colors["system_accent1_500"] ?: colorScheme.primary
+        val accent600 = colors["system_accent1_600"] ?: colorScheme.primary
+        val accent700 = colors["system_accent1_700"] ?: colorScheme.primary
+        val accent800 = colors["system_accent1_800"] ?: colorScheme.primary
+
+        // Simple strategy: use tertiary for first two (light blend), then accents for the rest
+        return TetrisColors(
+            color1 = accent200,
+            color2 = accent300,
+            color3 = accent400,
+            color4 = accent500,
+            color5 = accent600,
+            color6 = accent700,
+            color7 = accent800
+        )
+    } else {
+        // Fallback to default theme-based tetris colors
+        val primary = colorScheme.primary
+        val tertiary = colorScheme.tertiary
+        val surface = colorScheme.surface
+        return TetrisColors(
+            color1 = tertiary,
+            color2 = tertiary,
+            color3 = primary,
+            color4 = primary,
+            color5 = primary,
+            color6 = primary,
+            color7 = surface
+        )
     }
 }

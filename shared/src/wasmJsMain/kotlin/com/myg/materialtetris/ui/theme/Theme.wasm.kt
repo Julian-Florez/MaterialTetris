@@ -1,9 +1,5 @@
 package com.myg.materialtetris.ui.theme
 
-import androidx.compose.material3.ColorScheme
-import androidx.compose.runtime.Composable
-
-@Composable
-internal actual fun getPlatformColorScheme(darkTheme: Boolean): ColorScheme? {
-    return null
-}
+// Placeholder: la implementación de getPlatformColorScheme para wasm/browser
+// se encuentra en Theme.wasmJs.kt que maneja fetch desde la ruta base de la página.
+// Este archivo se deja vacío intencionalmente para evitar duplicados.

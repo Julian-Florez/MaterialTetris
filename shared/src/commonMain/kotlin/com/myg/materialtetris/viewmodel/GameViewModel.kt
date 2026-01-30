@@ -226,4 +226,14 @@ class GameViewModel(private val storage: GameStorage) : ViewModel() {
             else -> arrayOf(arrayOf())
         }
     }
+
+    // Expose a simple API for desktop/web main functions to trigger moves
+    fun onMove(direction: com.myg.materialtetris.model.Direction) {
+        when (direction) {
+            com.myg.materialtetris.model.Direction.UP -> rotatePiece()
+            com.myg.materialtetris.model.Direction.DOWN -> movePiece(0, 1)
+            com.myg.materialtetris.model.Direction.LEFT -> movePiece(-1, 0)
+            com.myg.materialtetris.model.Direction.RIGHT -> movePiece(1, 0)
+        }
+    }
 }

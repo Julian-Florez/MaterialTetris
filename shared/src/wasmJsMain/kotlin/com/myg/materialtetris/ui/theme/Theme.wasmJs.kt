@@ -1,7 +1,6 @@
 package com.myg.materialtetris.ui.theme
 
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.*
 import androidx.compose.ui.graphics.Color
 import kotlinx.browser.localStorage
@@ -9,12 +8,12 @@ import kotlinx.browser.window
 import kotlinx.coroutines.await
 import org.w3c.fetch.Response
 
-// Variable global para almacenar los colores cargados
-private var cachedColors: Map<String, Color>? = null
+// Variable global para almacenar los colores cargados (visibilidad interna para potencial reuso)
+internal var cachedColors: Map<String, Color>? = null
 private var colorsLoaded = false
 
 @Composable
-actual fun getPlatformColorScheme(darkTheme: Boolean): ColorScheme? {
+internal actual fun getPlatformColorScheme(darkTheme: Boolean): ColorScheme? {
     var colorScheme by remember { mutableStateOf<ColorScheme?>(loadCustomColorScheme()) }
 
     LaunchedEffect(darkTheme) {
@@ -22,9 +21,25 @@ actual fun getPlatformColorScheme(darkTheme: Boolean): ColorScheme? {
             try {
                 // Usar ruta relativa basada en la ubicación actual para soportar subdirectorios (ej: GitHub Pages)
                 val basePath = window.location.pathname.substringBeforeLast("/") + "/"
-                val colorsUrl = if (basePath == "/") "colors.txt" else "${basePath}colors.txt"
-                val response = window.fetch(colorsUrl).await<Response>()
-                if (response.ok) {
+                // Primero intentar 'colors' (sin extensión) en la ruta base, luego fallback a colors.txt por compatibilidad
+                val candidate1 = if (basePath == "/") "colors" else "${basePath}colors"
+                val candidate2 = if (basePath == "/") "colors.txt" else "${basePath}colors.txt"
+
+                var response: Response? = null
+                try {
+                    response = window.fetch(candidate1).await<Response>()
+                } catch (_: Throwable) {
+                    // ignore, try fallback
+                }
+                if (response == null || !response.ok) {
+                    try {
+                        response = window.fetch(candidate2).await<Response>()
+                    } catch (_: Throwable) {
+                        // ignore
+                    }
+                }
+
+                if (response != null && response.ok) {
                     val content = response.text().await<JsString>().toString()
                     val colors = parseColorsFromString(content)
                     cachedColors = colors
@@ -67,9 +82,18 @@ private fun parseColorsFromString(content: String): Map<String, Color> {
         if (trimmedLine.startsWith("---")) continue
 
         if (!isTable) {
-            val parts = trimmedLine.split("=")
-            if (parts.size == 2) {
-                colors[parts[0].trim()] = parseColor(parts[1].trim())
+            // Support single or multiple pairs on the same line separated by whitespace
+            val tokens = trimmedLine.split(Regex("\\s+"))
+            for (token in tokens) {
+                if (token.isBlank()) continue
+                val kv = token.split("=")
+                if (kv.size == 2) {
+                    colors[kv[0].trim()] = parseColor(kv[1].trim())
+                } else if (kv.size > 2) {
+                    val key = kv[0].trim()
+                    val value = kv.subList(1, kv.size).joinToString("=").trim()
+                    colors[key] = parseColor(value)
+                }
             }
         } else {
             // Table parsing
@@ -81,6 +105,10 @@ private fun parseColorsFromString(content: String): Map<String, Color> {
                 if (parts.size > 1) {
                     colors["system_accent1_$tone"] = parseColor(parts[1].trim())
                 }
+                if (parts.size > 2) colors["system_accent2_$tone"] = parseColor(parts[2].trim())
+                if (parts.size > 3) colors["system_accent3_$tone"] = parseColor(parts[3].trim())
+                if (parts.size > 4) colors["system_neutral1_$tone"] = parseColor(parts[4].trim())
+                if (parts.size > 5) colors["system_neutral2_$tone"] = parseColor(parts[5].trim())
             }
         }
     }
@@ -92,12 +120,12 @@ private fun buildColorScheme(colors: Map<String, Color>): ColorScheme? {
     if (colors.isEmpty()) return null
 
     return ColorScheme(
-        primary = colors["system_accent1_600"] ?: colors["primary"] ?: Color.Magenta,
+        primary = colors["primary"] ?: Color.Magenta,
         onPrimary = colors["onPrimary"] ?: Color.Magenta,
         primaryContainer = colors["primaryContainer"] ?: Color.Magenta,
         onPrimaryContainer = colors["onPrimaryContainer"] ?: Color.Magenta,
         inversePrimary = colors["inversePrimary"] ?: Color.Magenta,
-        secondary = colors["system_accent1_500"] ?: colors["secondary"] ?: Color.Magenta,
+        secondary = colors["secondary"] ?: Color.Magenta,
         onSecondary = colors["onSecondary"] ?: Color.Magenta,
         secondaryContainer = colors["secondaryContainer"] ?: Color.Magenta,
         onSecondaryContainer = colors["onSecondaryContainer"] ?: Color.Magenta,
@@ -122,7 +150,7 @@ private fun buildColorScheme(colors: Map<String, Color>): ColorScheme? {
         outlineVariant = colors["outlineVariant"] ?: Color.Magenta,
         scrim = colors["scrim"] ?: Color.Magenta,
         surfaceBright = colors["surfaceBright"] ?: colors["surface"] ?: Color.Magenta,
-        surfaceDim =.Magenta,
+        surfaceDim = colors["surfaceDim"] ?: colors["surface"] ?: Color.Magenta,
         surfaceContainer = colors["surfaceContainer"] ?: colors["surface"] ?: Color.Magenta,
         surfaceContainerHigh = colors["surfaceContainerHigh"] ?: colors["surface"] ?: Color.Magenta,
         surfaceContainerHighest = colors["surfaceContainerHighest"] ?: colors["surface"] ?: Color.Magenta,
@@ -160,25 +188,6 @@ private fun parseColor(colorString: String): Color {
     }
 }
 
-@Composable
-actual fun getTetrisColors(): Pair<Color, Color> {
-    val colorScheme = MaterialTheme.colorScheme
-
-    // Usar los colores cacheados del archivo, o intentar localStorage
-    val colors = cachedColors ?: run {
-        val content = localStorage.getItem("materialtetris_colors") ?: ""
-        parseColorsFromString(content)
-    }
-
-    return if (colors.isNotEmpty()) {
-        val c600 = colors["system_accent1_600"] ?: colors["primary"] ?: colorScheme.primary
-        val c500 = colors["system_accent1_500"] ?: colors["secondary"] ?: colorScheme.secondary
-        c600 to c500
-    } else {
-        colorScheme.primary to colorScheme.secondary
-    }
-}
-
 // Función auxiliar para guardar colores desde JavaScript
 fun saveColors(colorsContent: String) {
     localStorage.setItem("materialtetris_colors", colorsContent)
@@ -193,4 +202,3 @@ fun getColors(): String? {
 private external object console {
     fun error(message: String)
 }
-
