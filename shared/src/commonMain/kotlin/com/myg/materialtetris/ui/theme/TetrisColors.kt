@@ -28,5 +28,17 @@ data class TetrisColors(
 
 @Composable
 fun getTetrisColors(): TetrisColors {
-    return getPlatformTetrisColors()
+    // Obtener la paleta de la plataforma y forzar que todas las piezas usen el mismo color
+    val platform = getPlatformTetrisColors()
+    // Si por alguna razón platform es nulo (no debería en las actual implementaciones), usar un fallback
+    val baseColor = platform?.color1 ?: Color(0xFFFFB779)
+    return TetrisColors(
+        color1 = baseColor,
+        color2 = baseColor,
+        color3 = baseColor,
+        color4 = baseColor,
+        color5 = baseColor,
+        color6 = baseColor,
+        color7 = baseColor
+    )
 }
