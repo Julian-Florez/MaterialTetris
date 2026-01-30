@@ -1,7 +1,5 @@
 package com.myg.materialtetris.model
 
-import java.util.concurrent.atomic.AtomicInteger
-
 // Represents a Tetris piece
 data class Tetromino(
     val id: Int,
@@ -40,6 +38,11 @@ data class Tetromino(
 }
 
 object PieceIdProvider {
-    private val nextId = AtomicInteger()
-    fun next() = nextId.incrementAndGet()
+    // Use a simple Int counter in common code to avoid platform-specific java.* classes.
+    // This is sufficient for single-threaded targets (JS/wasm) and simple usage in the game.
+    private var nextId: Int = 0
+    fun next(): Int {
+        nextId += 1
+        return nextId
+    }
 }
