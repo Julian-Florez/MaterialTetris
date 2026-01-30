@@ -151,8 +151,7 @@ actual fun getPlatformTetrisColors(): TetrisColors {
     val file = File("C:\\Program Files\\MaterialYouWindows\\colors")
     val colors = parseColorsFromFile(file)
 
-    return if (colors.isNotEmpty()) {
-        val accent200 = colors["system_accent1_200"] ?: colorScheme.primaryContainer
+        val accent200 = colors["system_accent1_200"] ?: colorScheme.primary
         val accent300 = colors["system_accent1_300"] ?: colorScheme.primary
         val accent400 = colors["system_accent1_400"] ?: colorScheme.primary
         val accent500 = colors["system_accent1_500"] ?: colorScheme.primary
@@ -170,19 +169,4 @@ actual fun getPlatformTetrisColors(): TetrisColors {
             color6 = accent700,
             color7 = accent800
         )
-    } else {
-        // Fallback to default theme-based tetris colors
-        val primary = colorScheme.primary
-        val tertiary = colorScheme.tertiary
-        val surface = colorScheme.surface
-        return TetrisColors(
-            color1 = tertiary,
-            color2 = tertiary,
-            color3 = primary,
-            color4 = primary,
-            color5 = primary,
-            color6 = primary,
-            color7 = surface
-        )
-    }
 }

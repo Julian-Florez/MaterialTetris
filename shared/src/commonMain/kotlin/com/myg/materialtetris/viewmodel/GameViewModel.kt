@@ -81,7 +81,8 @@ class GameViewModel(private val storage: GameStorage) : ViewModel() {
     private fun createRandomPiece(): Tetromino {
         val type = (1..7).random()
         val shape = getTetrominoShape(type)
-        return Tetromino(PieceIdProvider.next(), type, shape, BOARD_WIDTH / 2 - 1, -2)
+        val piece = Tetromino(PieceIdProvider.next(), type, shape, BOARD_WIDTH / 2 - 1, -2)
+        return piece
     }
 
     fun movePiece(dx: Int, dy: Int) {

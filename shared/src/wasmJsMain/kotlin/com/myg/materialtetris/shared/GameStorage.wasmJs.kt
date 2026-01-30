@@ -5,7 +5,10 @@ import kotlinx.browser.localStorage
 class WasmGameStorage : GameStorage {
 
     override fun saveScore(score: Int) {
-        localStorage.setItem("materialtetris_score", score.toString())
+        try {
+            localStorage.setItem("materialtetris_score", score.toString())
+        } catch (_: Throwable) {
+        }
     }
 
     override fun getScore(): Int {
@@ -13,11 +16,13 @@ class WasmGameStorage : GameStorage {
     }
 
     override fun saveBoard(boardStr: String) {
-        localStorage.setItem("materialtetris_board", boardStr)
+        try {
+            localStorage.setItem("materialtetris_board", boardStr)
+        } catch (_: Throwable) {
+        }
     }
 
     override fun getBoard(): String? {
         return localStorage.getItem("materialtetris_board")
     }
 }
-
