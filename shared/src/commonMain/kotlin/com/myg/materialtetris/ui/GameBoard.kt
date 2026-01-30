@@ -27,6 +27,8 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.translate
 import com.myg.materialtetris.model.Tetromino
 import com.myg.materialtetris.ui.theme.getTetrisColors
+import com.myg.materialtetris.ui.theme.getSystemAccent1Tone700
+import com.myg.materialtetris.ui.theme.getSystemAccent1Tone800
 import com.myg.materialtetris.viewmodel.BOARD_HEIGHT
 import com.myg.materialtetris.viewmodel.BOARD_WIDTH
 import kotlinx.coroutines.launch
@@ -70,7 +72,9 @@ fun GameBoard(
                 .clip(RoundedCornerShape(cornerRadius))
                 .background(gridColor)
         ) {
-            Canvas(modifier = Modifier.fillMaxSize()) {
+            // Obtener previewColor en contexto @Composable (no dentro del DrawScope)
+            val previewColor = getSystemAccent1Tone800()
+             Canvas(modifier = Modifier.fillMaxSize()) {
                 val cellSize = size.width / BOARD_WIDTH
                 val pieceCornerRadius = cellSize * 0.35f
 
@@ -208,6 +212,18 @@ fun GameBoard(
                                 hasLeft = hasLeft,
                                 hasRight = hasRight
                             )
+                        }
+                    }
+                }
+
+                // Draw preview (ghost) piece showing where the active piece will land
+                activePiece?.let { piece ->
+                    val landingY = computeLandingY(board, piece)
+                    // Only draw preview if there is a valid landing row at or below current piece.y
+                    if (landingY >= piece.y) {
+                        translate(left = animatableX.value * cellSize, top = landingY * cellSize) {
+                            // drawTetrominoPiece draws blocks relative to the translate origin
+                            drawTetrominoPiece(piece, cellSize, previewColor)
                         }
                     }
                 }
@@ -439,5 +455,47 @@ private fun DrawScope.drawCornerUnderlay(
             topLeft = Offset(newX + newCellSize, newY + newCellSize),
             size = Size(arcRadius, arcRadius)
         )
+    }
+}
+
+// Helper para calcular la fila de aterrizaje (landing Y) de una pieza sin modificar el board
+private fun computeLandingY(board: Array<Array<Int>>, piece: Tetromino): Int {
+    var yTest = piece.y
+    var lastValid = piece.y
+    val shape = piece.shape
+
+    // iterate until a collision is detected; negative global rows are allowed (spawn area)
+    while (true) {
+        var collision = false
+        loop@ for (r in shape.indices) {
+            for (c in shape[r].indices) {
+                if (shape[r][c] <= 0) continue
+                val globalR = yTest + r
+                val globalC = piece.x + c
+                // horizontal out-of-bounds is a collision for landing purposes
+                if (globalC < 0 || globalC >= BOARD_WIDTH) {
+                    collision = true
+                    break@loop
+                }
+                // if below the board -> collision
+                if (globalR >= BOARD_HEIGHT) {
+                    collision = true
+                    break@loop
+                }
+                // ignore parts above the top (globalR < 0) when checking board occupancy
+                if (globalR >= 0 && board[globalR][globalC] > 0) {
+                    collision = true
+                    break@loop
+                }
+            }
+        }
+        if (collision) {
+            return lastValid
+        } else {
+            lastValid = yTest
+            yTest += 1
+            // safety: if we've tested beyond a reasonable bound, return last valid
+            if (yTest > BOARD_HEIGHT + 5) return lastValid
+        }
     }
 }
