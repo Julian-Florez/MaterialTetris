@@ -42,8 +42,3 @@ Un juego de Tetris moderno con Material Design 3, construido con Kotlin Multipla
 ```bash
 ./gradlew :web:wasmJsBrowserDistribution
 ```
-
-## 📄 Licencia
-
-MIT License
-
