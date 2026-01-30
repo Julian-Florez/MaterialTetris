@@ -4,21 +4,18 @@ Un juego de Tetris moderno con Material Design 3, construido con Kotlin Multipla
 
 ## 🎮 Jugar Online
 
-[**¡Juega ahora en tu navegador!**](https://TU_USUARIO.github.io/MaterialTetris/)
+[**¡Juega ahora en tu navegador!**](https://julian-florez.github.io/MaterialTetris/)
 
-## 🖼️ Capturas de pantalla
-
-*(Agrega capturas de pantalla aquí)*
 
 ## 🚀 Plataformas
 
 - **Web (WebAssembly)** - Juega directamente en el navegador
 - **Desktop** - Windows, macOS, Linux
-- **Android** - Próximamente
+- **Android**
 
 ## 🎯 Controles
 
-- **Flechas del teclado** o **WASD** - Mover la serpiente
+- **Flechas del teclado** o **WASD** - Mover
 - **R** - Reiniciar el juego
 - **Pantalla táctil** - Desliza para mover (en móviles)
 
