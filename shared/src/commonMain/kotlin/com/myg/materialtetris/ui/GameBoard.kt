@@ -27,11 +27,20 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.translate
 import com.myg.materialtetris.model.Tetromino
 import com.myg.materialtetris.ui.theme.getTetrisColors
-import com.myg.materialtetris.ui.theme.getSystemAccent1Tone700
 import com.myg.materialtetris.ui.theme.getSystemAccent1Tone800
 import com.myg.materialtetris.viewmodel.BOARD_HEIGHT
 import com.myg.materialtetris.viewmodel.BOARD_WIDTH
 import kotlinx.coroutines.launch
+
+/**
+ * Animatable state holder for a single cell's corner radii.
+ */
+private class AnimatableCellCorners {
+    val topLeft = Animatable(1f)
+    val topRight = Animatable(1f)
+    val bottomLeft = Animatable(1f)
+    val bottomRight = Animatable(1f)
+}
 
 @Composable
 fun GameBoard(
@@ -51,6 +60,67 @@ fun GameBoard(
 
         val animatableX = remember { Animatable(3f) }
         val animatableY = remember { Animatable(-2f) }
+
+        // State for animated corner radii of locked pieces
+        // Keys are "row,col" strings, values are AnimatableCellCorners
+        val cornerAnimations = remember { mutableMapOf<String, AnimatableCellCorners>() }
+
+        // Helper function to get board value safely
+        val getBoard = { ri: Int, ci: Int -> board.getOrNull(ri)?.getOrNull(ci) ?: 0 }
+
+        // Animate corner radii for all locked cells when board changes
+        LaunchedEffect(board.contentDeepHashCode()) {
+            for (r in board.indices) {
+                for (c in board[r].indices) {
+                    if (board[r][c] > 0) {
+                        val key = "$r,$c"
+
+                        // Compute target corner radii using the EXACT same triggers as before
+                        val hasTop = getBoard(r - 1, c) > 0
+                        val hasBottom = getBoard(r + 1, c) > 0 || r == board.lastIndex
+                        val hasLeft = getBoard(r, c - 1) > 0 || c == 0
+                        val hasRight = getBoard(r, c + 1) > 0 || c == board[r].lastIndex
+
+                        // Target: 1f = full radius, 0f = no radius (squared corner)
+                        val targetTopLeft = if (!hasTop && !hasLeft) 1f else 0f
+                        val targetTopRight = if (!hasTop && !hasRight) 1f else 0f
+                        val targetBottomLeft = if (!hasBottom && !hasLeft) 1f else 0f
+                        val targetBottomRight = if (!hasBottom && !hasRight) 1f else 0f
+
+                        // Check if this is a new cell (not yet in the map)
+                        val isNewCell = !cornerAnimations.containsKey(key)
+
+                        // Get or create animatable corners for this cell
+                        val corners = cornerAnimations.getOrPut(key) { AnimatableCellCorners() }
+
+                        if (isNewCell) {
+                            // New cell: snap to initial values immediately
+                            launch { corners.topLeft.snapTo(targetTopLeft) }
+                            launch { corners.topRight.snapTo(targetTopRight) }
+                            launch { corners.bottomLeft.snapTo(targetBottomLeft) }
+                            launch { corners.bottomRight.snapTo(targetBottomRight) }
+                        } else {
+                            // Existing cell: animate to target values
+                            launch { corners.topLeft.animateTo(targetTopLeft, tween(150)) }
+                            launch { corners.topRight.animateTo(targetTopRight, tween(150)) }
+                            launch { corners.bottomLeft.animateTo(targetBottomLeft, tween(150)) }
+                            launch { corners.bottomRight.animateTo(targetBottomRight, tween(150)) }
+                        }
+                    }
+                }
+            }
+
+            // Cleanup: remove entries for cells that no longer have pieces
+            val validKeys = mutableSetOf<String>()
+            for (r in board.indices) {
+                for (c in board[r].indices) {
+                    if (board[r][c] > 0) {
+                        validKeys.add("$r,$c")
+                    }
+                }
+            }
+            cornerAnimations.keys.removeAll { it !in validKeys }
+        }
 
         LaunchedEffect(activePiece) {
             if (activePiece == null) {
@@ -191,29 +261,49 @@ fun GameBoard(
                     }
                 }
 
-                // Draw the locked pieces (single pass)
+                // Draw the locked pieces (single pass) with animated corner radii
                 for (r in board.indices) {
                     for (c in board[r].indices) {
                         if (board[r][c] > 0) {
                             val type = board[r][c]
                             val color = tetrisColors.getColor(type)
 
-                            val hasTop = getBoard(r - 1, c) > 0
-                            val hasBottom = getBoard(r + 1, c) > 0 || r == board.lastIndex
-                            val hasLeft = getBoard(r, c - 1) > 0 || c == 0
-                            val hasRight = getBoard(r, c + 1) > 0 || c == board[r].lastIndex
+                            // Get animated corner radii for this cell
+                            val key = "$r,$c"
+                            val corners = cornerAnimations[key]
 
-                            drawPieceBlock(
-                                x = offsetX + c * cellSize,
-                                y = offsetY + r * cellSize,
-                                cellSize = cellSize,
-                                color = color,
-                                cornerRadius = pieceCornerRadius,
-                                hasTop = hasTop,
-                                hasBottom = hasBottom,
-                                hasLeft = hasLeft,
-                                hasRight = hasRight
-                            )
+                            if (corners != null) {
+                                // Use animated corner factors
+                                drawPieceBlockAnimated(
+                                    x = offsetX + c * cellSize,
+                                    y = offsetY + r * cellSize,
+                                    cellSize = cellSize,
+                                    color = color,
+                                    cornerRadius = pieceCornerRadius,
+                                    topLeftFactor = corners.topLeft.value,
+                                    topRightFactor = corners.topRight.value,
+                                    bottomLeftFactor = corners.bottomLeft.value,
+                                    bottomRightFactor = corners.bottomRight.value
+                                )
+                            } else {
+                                // Fallback: compute corner radii directly (should rarely happen)
+                                val hasTop = getBoard(r - 1, c) > 0
+                                val hasBottom = getBoard(r + 1, c) > 0 || r == board.lastIndex
+                                val hasLeft = getBoard(r, c - 1) > 0 || c == 0
+                                val hasRight = getBoard(r, c + 1) > 0 || c == board[r].lastIndex
+
+                                drawPieceBlock(
+                                    x = offsetX + c * cellSize,
+                                    y = offsetY + r * cellSize,
+                                    cellSize = cellSize,
+                                    color = color,
+                                    cornerRadius = pieceCornerRadius,
+                                    hasTop = hasTop,
+                                    hasBottom = hasBottom,
+                                    hasLeft = hasLeft,
+                                    hasRight = hasRight
+                                )
+                            }
                         }
                     }
                 }
@@ -307,16 +397,50 @@ private fun DrawScope.drawPieceBlock(
     hasLeft: Boolean,
     hasRight: Boolean
 ) {
+    // Default implementation uses binary (0 or 1) corner factors based on has* flags
+    val topLeftFactor = if (!hasTop && !hasLeft) 1f else 0f
+    val topRightFactor = if (!hasTop && !hasRight) 1f else 0f
+    val bottomLeftFactor = if (!hasBottom && !hasLeft) 1f else 0f
+    val bottomRightFactor = if (!hasBottom && !hasRight) 1f else 0f
+
+    drawPieceBlockAnimated(
+        x = x,
+        y = y,
+        cellSize = cellSize,
+        color = color,
+        cornerRadius = cornerRadius,
+        topLeftFactor = topLeftFactor,
+        topRightFactor = topRightFactor,
+        bottomLeftFactor = bottomLeftFactor,
+        bottomRightFactor = bottomRightFactor
+    )
+}
+
+/**
+ * Draws a piece block with animated corner radius factors.
+ * Each factor is a value from 0f (no radius, squared) to 1f (full radius).
+ */
+private fun DrawScope.drawPieceBlockAnimated(
+    x: Float,
+    y: Float,
+    cellSize: Float,
+    color: Color,
+    cornerRadius: Float,
+    topLeftFactor: Float,
+    topRightFactor: Float,
+    bottomLeftFactor: Float,
+    bottomRightFactor: Float
+) {
     val overlap = 1f
     val newCellSize = cellSize + overlap
     val newX = x - overlap / 2
     val newY = y - overlap / 2
     val newCornerRadius = cornerRadius * (newCellSize / cellSize)
 
-    val topLeftRadius = if (!hasTop && !hasLeft) CornerRadius(newCornerRadius) else CornerRadius.Zero
-    val topRightRadius = if (!hasTop && !hasRight) CornerRadius(newCornerRadius) else CornerRadius.Zero
-    val bottomLeftRadius = if (!hasBottom && !hasLeft) CornerRadius(newCornerRadius) else CornerRadius.Zero
-    val bottomRightRadius = if (!hasBottom && !hasRight) CornerRadius(newCornerRadius) else CornerRadius.Zero
+    val topLeftRadius = CornerRadius(newCornerRadius * topLeftFactor)
+    val topRightRadius = CornerRadius(newCornerRadius * topRightFactor)
+    val bottomLeftRadius = CornerRadius(newCornerRadius * bottomLeftFactor)
+    val bottomRightRadius = CornerRadius(newCornerRadius * bottomRightFactor)
     val path = Path().apply {
         addRoundRect(
             RoundRect(
