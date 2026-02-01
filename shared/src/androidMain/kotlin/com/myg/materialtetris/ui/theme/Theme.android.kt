@@ -1,18 +1,270 @@
 package com.myg.materialtetris.ui.theme
 
-import android.os.Build
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.remember
+import androidx.compose.ui.graphics.Color
+import java.lang.Long
 
 @Composable
 actual fun getPlatformColorScheme(darkTheme: Boolean): ColorScheme? {
-    val context = LocalContext.current
-    return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-    } else {
-        null
+    return remember(darkTheme) {
+        loadCustomColorScheme()
+    }
+}
+
+@Composable
+actual fun getPlatformTetrisColors(): TetrisColors {
+    val colorScheme = MaterialTheme.colorScheme
+    val file = """primary=#FFD7CA00
+onPrimary=#FF353100
+primaryContainer=#FF4D4800
+onPrimaryContainer=#FFF6E600
+inversePrimary=#FF676000
+secondary=#FFC5CB96
+onSecondary=#FF2E330D
+secondaryContainer=#FF454A21
+onSecondaryContainer=#FFE1E7B0
+tertiary=#FFB5CF90
+onTertiary=#FF223607
+tertiaryContainer=#FF384D1C
+onTertiaryContainer=#FFD1ECAA
+background=#FF151407
+onBackground=#FFE8E3CC
+surface=#FF151407
+onSurface=#FFE8E3CC
+surfaceVariant=#FF4A4733
+onSurfaceVariant=#FFCCC7AC
+surfaceTint=#FFD7CA00
+inverseSurface=#FFFFFAE3
+inverseOnSurface=#FF1D1C0E
+error=#FFF2B8B5
+onError=#FF601410
+errorContainer=#FF8C1D18
+onErrorContainer=#FFF9DEDC
+outline=#FF959179
+outlineVariant=#FF4A4733
+scrim=#FF000000
+surfaceBright=#FF3C3A2A
+surfaceDim=#FF151407
+surfaceContainer=#FF222012
+surfaceContainerHigh=#FF2C2A1B
+surfaceContainerHighest=#FF373525
+surfaceContainerLow=#FF1D1C0E
+surfaceContainerLowest=#FF100F03
+
+--- System Colors Table ---
+Tone,Accent1,Accent2,Accent3,Neutral1,Neutral2
+0,#FFFFFFFF,#FFFFFFFF,#FFFFFFFF,#FFFFFFFF,#FFFFFFFF
+10,#FFFFFBFF,#FFFDFFDB,#FFF9FFE8,#FFFFFBFF,#FFFFFBFF
+50,#FFFFF482,#FFEFF5BE,#FFDFFAB7,#FFF6F1DA,#FFF7F1D5
+100,#FFF6E600,#FFE1E7B0,#FFD1ECAA,#FFE8E3CC,#FFE8E3C7
+200,#FFD7CA00,#FFC5CB96,#FFB5CF90,#FFCBC7B1,#FFCCC7AC
+300,#FFBAAE00,#FFA9AF7D,#FF9AB477,#FFB0AC96,#FFB0AC92
+400,#FF9D9300,#FF8F9564,#FF80995F,#FF95917D,#FF959179
+500,#FF827900,#FF757B4D,#FF677F48,#FF7B7764,#FF7B7860
+600,#FF676000,#FF5C6237,#FF4F6531,#FF625F4D,#FF625F49
+700,#FF4D4800,#FF454A21,#FF384D1C,#FF494736,#FF4A4733
+800,#FF353100,#FF2E330D,#FF223607,#FF333121,#FF33311E
+900,#FF1F1C00,#FF191E00,#FF102000,#FF1D1C0E,#FF1E1C0B
+1000,#FF000000,#FF000000,#FF000000,#FF000000,#FF000000
+""".trimIndent()
+    val colors = parseColorsFromFile(file)
+    val accent200 = colors["system_accent1_200"] ?: colorScheme.primary
+    val accent300 = colors["system_accent1_300"] ?: colorScheme.primary
+    val accent400 = colors["system_accent1_400"] ?: colorScheme.primary
+    val accent500 = colors["system_accent1_500"] ?: colorScheme.primary
+    val accent600 = colors["system_accent1_600"] ?: colorScheme.primary
+    val accent700 = colors["system_accent1_700"] ?: colorScheme.primary
+    val accent800 = colors["system_accent1_800"] ?: colorScheme.primary
+    return TetrisColors(
+        color1 = accent200,
+        color2 = accent300,
+        color3 = accent400,
+        color4 = accent500,
+        color5 = accent600,
+        color6 = accent700,
+        color7 = accent800
+    )
+}
+
+private fun parseColorsFromFile(file: String): Map<String, Color> {
+    val colors = mutableMapOf<String, Color>()
+
+    val lines = file.lines()
+    var isTable = false
+
+    for (line in lines) {
+        val trimmedLine = line.trim()
+        if (trimmedLine.isEmpty()) continue
+
+        if (trimmedLine.startsWith("--- System Colors Table ---")) {
+            isTable = true
+            continue
+        }
+
+        if (trimmedLine.startsWith("---")) continue
+
+        if (!isTable) {
+            // Support both single "key=value" per line and multiple pairs on the same line separated by whitespace
+            // e.g. "primary=#FFFFA44E onPrimary=#FF552C00 primaryContainer=#FFFE8F00"
+            val tokens = trimmedLine.split(Regex("\\s+"))
+            for (token in tokens) {
+                if (token.isBlank()) continue
+                val kv = token.split("=")
+                if (kv.size == 2) {
+                    val key = kv[0].trim()
+                    val value = kv[1].trim()
+                    // Ignore malformed values
+                    if (key.isNotEmpty() && value.isNotEmpty()) {
+                        colors[key] = parseColor(value)
+                    }
+                } else if (kv.size > 2) {
+                    // Rare case: value contains '=' (unlikely for colors), join the rest back
+                    val key = kv[0].trim()
+                    val value = kv.subList(1, kv.size).joinToString("=").trim()
+                    if (key.isNotEmpty() && value.isNotEmpty()) {
+                        colors[key] = parseColor(value)
+                    }
+                }
+            }
+        } else {
+            // Table parsing
+            if (trimmedLine.startsWith("Tone")) continue // Header
+            val parts = trimmedLine.split(",")
+            if (parts.size >= 2) {
+                val tone = parts[0].trim()
+                // Accent1 is index 1
+                if (parts.size > 1) {
+                    colors["system_accent1_$tone"] = parseColor(parts[1].trim())
+                }
+                // Also parse additional accents and neutrals if present
+                if (parts.size > 2) colors["system_accent2_$tone"] = parseColor(parts[2].trim())
+                if (parts.size > 3) colors["system_accent3_$tone"] = parseColor(parts[3].trim())
+                if (parts.size > 4) colors["system_neutral1_$tone"] = parseColor(parts[4].trim())
+                if (parts.size > 5) colors["system_neutral2_$tone"] = parseColor(parts[5].trim())
+            }
+        }
+    }
+    return colors
+}
+
+private fun loadCustomColorScheme(): ColorScheme? {
+    try {
+        val file = """primary=#FFD7CA00
+onPrimary=#FF353100
+primaryContainer=#FF4D4800
+onPrimaryContainer=#FFF6E600
+inversePrimary=#FF676000
+secondary=#FFC5CB96
+onSecondary=#FF2E330D
+secondaryContainer=#FF454A21
+onSecondaryContainer=#FFE1E7B0
+tertiary=#FFB5CF90
+onTertiary=#FF223607
+tertiaryContainer=#FF384D1C
+onTertiaryContainer=#FFD1ECAA
+background=#FF151407
+onBackground=#FFE8E3CC
+surface=#FF151407
+onSurface=#FFE8E3CC
+surfaceVariant=#FF4A4733
+onSurfaceVariant=#FFCCC7AC
+surfaceTint=#FFD7CA00
+inverseSurface=#FFFFFAE3
+inverseOnSurface=#FF1D1C0E
+error=#FFF2B8B5
+onError=#FF601410
+errorContainer=#FF8C1D18
+onErrorContainer=#FFF9DEDC
+outline=#FF959179
+outlineVariant=#FF4A4733
+scrim=#FF000000
+surfaceBright=#FF3C3A2A
+surfaceDim=#FF151407
+surfaceContainer=#FF222012
+surfaceContainerHigh=#FF2C2A1B
+surfaceContainerHighest=#FF373525
+surfaceContainerLow=#FF1D1C0E
+surfaceContainerLowest=#FF100F03
+
+--- System Colors Table ---
+Tone,Accent1,Accent2,Accent3,Neutral1,Neutral2
+0,#FFFFFFFF,#FFFFFFFF,#FFFFFFFF,#FFFFFFFF,#FFFFFFFF
+10,#FFFFFBFF,#FFFDFFDB,#FFF9FFE8,#FFFFFBFF,#FFFFFBFF
+50,#FFFFF482,#FFEFF5BE,#FFDFFAB7,#FFF6F1DA,#FFF7F1D5
+100,#FFF6E600,#FFE1E7B0,#FFD1ECAA,#FFE8E3CC,#FFE8E3C7
+200,#FFD7CA00,#FFC5CB96,#FFB5CF90,#FFCBC7B1,#FFCCC7AC
+300,#FFBAAE00,#FFA9AF7D,#FF9AB477,#FFB0AC96,#FFB0AC92
+400,#FF9D9300,#FF8F9564,#FF80995F,#FF95917D,#FF959179
+500,#FF827900,#FF757B4D,#FF677F48,#FF7B7764,#FF7B7860
+600,#FF676000,#FF5C6237,#FF4F6531,#FF625F4D,#FF625F49
+700,#FF4D4800,#FF454A21,#FF384D1C,#FF494736,#FF4A4733
+800,#FF353100,#FF2E330D,#FF223607,#FF333121,#FF33311E
+900,#FF1F1C00,#FF191E00,#FF102000,#FF1D1C0E,#FF1E1C0B
+1000,#FF000000,#FF000000,#FF000000,#FF000000,#FF000000""".trimIndent()
+        val colors = parseColorsFromFile(file)
+
+        if (colors.isEmpty()) return null
+
+        return ColorScheme(
+            primary = colors["system_accent1_600"] ?: colors["primary"] ?: Color.Magenta,
+            onPrimary = colors["onPrimary"] ?: Color.Magenta,
+            primaryContainer = colors["primaryContainer"] ?: Color.Magenta,
+            onPrimaryContainer = colors["onPrimaryContainer"] ?: Color.Magenta,
+            inversePrimary = colors["inversePrimary"] ?: Color.Magenta,
+            secondary = colors["system_accent1_500"] ?: colors["secondary"] ?: Color.Magenta,
+            onSecondary = colors["onSecondary"] ?: Color.Magenta,
+            secondaryContainer = colors["secondaryContainer"] ?: Color.Magenta,
+            onSecondaryContainer = colors["onSecondaryContainer"] ?: Color.Magenta,
+            tertiary = colors["tertiary"] ?: Color.Magenta,
+            onTertiary = colors["onTertiary"] ?: Color.Magenta,
+            tertiaryContainer = colors["tertiaryContainer"] ?: Color.Magenta,
+            onTertiaryContainer = colors["onTertiaryContainer"] ?: Color.Magenta,
+            background = colors["background"] ?: Color.Magenta,
+            onBackground = colors["onBackground"] ?: Color.Magenta,
+            surface = colors["surface"] ?: Color.Magenta,
+            onSurface = colors["onSurface"] ?: Color.Magenta,
+            surfaceVariant = colors["surfaceVariant"] ?: Color.Magenta,
+            onSurfaceVariant = colors["onSurfaceVariant"] ?: Color.Magenta,
+            surfaceTint = colors["surfaceTint"] ?: colors["primary"] ?: Color.Magenta,
+            inverseSurface = colors["inverseSurface"] ?: Color.Magenta,
+            inverseOnSurface = colors["inverseOnSurface"] ?: Color.Magenta,
+            error = colors["error"] ?: Color.Magenta,
+            onError = colors["onError"] ?: Color.Magenta,
+            errorContainer = colors["errorContainer"] ?: Color.Magenta,
+            onErrorContainer = colors["onErrorContainer"] ?: Color.Magenta,
+            outline = colors["outline"] ?: Color.Magenta,
+            outlineVariant = colors["outlineVariant"] ?: Color.Magenta,
+            scrim = colors["scrim"] ?: Color.Magenta,
+            surfaceBright = colors["surfaceBright"] ?: colors["surface"] ?: Color.Magenta,
+            surfaceDim = colors["surfaceDim"] ?: colors["surface"] ?: Color.Magenta,
+            surfaceContainer = colors["surfaceContainer"] ?: colors["surface"] ?: Color.Magenta,
+            surfaceContainerHigh = colors["surfaceContainerHigh"] ?: colors["surface"] ?: Color.Magenta,
+            surfaceContainerHighest = colors["surfaceContainerHighest"] ?: colors["surface"] ?: Color.Magenta,
+            surfaceContainerLow = colors["surfaceContainerLow"] ?: colors["surface"] ?: Color.Magenta,
+            surfaceContainerLowest = colors["surfaceContainerLowest"] ?: colors["surface"] ?: Color.Magenta,
+        )
+    } catch (_: Exception) {
+        // Ignorar
+    }
+    return null
+}
+
+private fun parseColor(colorString: String): Color {
+    return try {
+        val hex = colorString.removePrefix("#")
+        val longValue = Long.parseLong(hex, 16)
+        // Handle 8-digit hex (ARGB) or 6-digit hex (RGB)
+        if (hex.length == 8) {
+            Color(longValue)
+        } else if (hex.length == 6) {
+            Color(longValue or 0xFF000000)
+        } else {
+            Color.Magenta
+        }
+    } catch (_: Exception) {
+        Color.Magenta
     }
 }
