@@ -29,7 +29,7 @@ compose.desktop {
         
         nativeDistributions {
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "Tetris"
+            packageName = "Material Tetris"
             packageVersion = "1.0.0"
             
             // Set vendor name for Windows installer metadata
