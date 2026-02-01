@@ -75,7 +75,13 @@ fun GameBoard(
             // Obtener previewColor en contexto @Composable (no dentro del DrawScope)
             val previewColor = getSystemAccent1Tone800()
              Canvas(modifier = Modifier.fillMaxSize()) {
-                val cellSize = size.width / BOARD_WIDTH
+                // Usar el menor valor entre ancho y alto para cellSize, así nunca sobresale
+                val cellSize = minOf(size.width / BOARD_WIDTH, size.height / BOARD_HEIGHT)
+                val boardDrawWidth = cellSize * BOARD_WIDTH
+                val boardDrawHeight = cellSize * BOARD_HEIGHT
+                // Centrar el tablero dentro del Canvas si hay espacio extra
+                val offsetX = (size.width - boardDrawWidth) / 2f
+                val offsetY = (size.height - boardDrawHeight) / 2f
                 val pieceCornerRadius = cellSize * 0.35f
 
                 // helper to access board safely from anywhere inside Canvas
@@ -105,8 +111,8 @@ fun GameBoard(
                             val rightColor = tetrisColors.getColor(getBoard(r, c + 1))
 
                             drawCornerUnderlay(
-                                x = c * cellSize,
-                                y = r * cellSize,
+                                x = offsetX + c * cellSize,
+                                y = offsetY + r * cellSize,
                                 cellSize = cellSize,
                                 color = color,
                                 cornerRadius = pieceCornerRadius,
@@ -131,7 +137,7 @@ fun GameBoard(
                 // Active piece underlays (draw translated so they match active position)
                 activePiece?.let { piece ->
                     val color = tetrisColors.getColor(piece.type)
-                    translate(left = animatableX.value * cellSize, top = animatableY.value * cellSize) {
+                    translate(left = offsetX + animatableX.value * cellSize, top = offsetY + animatableY.value * cellSize) {
                         for (r in piece.shape.indices) {
                             for (c in piece.shape[r].indices) {
                                 if (piece.shape[r][c] > 0) {
@@ -196,14 +202,10 @@ fun GameBoard(
                             val hasBottom = getBoard(r + 1, c) > 0 || r == board.lastIndex
                             val hasLeft = getBoard(r, c - 1) > 0 || c == 0
                             val hasRight = getBoard(r, c + 1) > 0 || c == board[r].lastIndex
-                            val hasTopLeft = getBoard(r - 1, c - 1) > 0
-                            val hasTopRight = getBoard(r - 1, c + 1) > 0
-                            val hasBottomLeft = getBoard(r + 1, c - 1) > 0
-                            val hasBottomRight = getBoard(r + 1, c + 1) > 0
 
                             drawPieceBlock(
-                                x = c * cellSize,
-                                y = r * cellSize,
+                                x = offsetX + c * cellSize,
+                                y = offsetY + r * cellSize,
                                 cellSize = cellSize,
                                 color = color,
                                 cornerRadius = pieceCornerRadius,
@@ -216,13 +218,13 @@ fun GameBoard(
                     }
                 }
 
-                // Draw preview (ghost) piece showing where the active piece will land
+                // DIBUJAR PRIMERO LA FICHA FANTASMA (ghost/preview) PARA QUE QUEDE DETRÁS DE TODO
                 activePiece?.let { piece ->
                     val landingY = computeLandingY(board, piece)
-                    // Only draw preview if there is a valid landing row at or below current piece.y
+                    // Solo dibujar preview si hay una fila válida de aterrizaje
                     if (landingY >= piece.y) {
-                        translate(left = animatableX.value * cellSize, top = landingY * cellSize) {
-                            // drawTetrominoPiece draws blocks relative to the translate origin
+                        // Usar las coordenadas fijas de destino, NO las animadas
+                        translate(left = offsetX + piece.x * cellSize, top = offsetY + landingY * cellSize) {
                             drawTetrominoPiece(piece, cellSize, previewColor)
                         }
                     }
@@ -232,8 +234,8 @@ fun GameBoard(
                 activePiece?.let { piece ->
                     val color = tetrisColors.getColor(piece.type)
                     translate(
-                        left = animatableX.value * cellSize,
-                        top = animatableY.value * cellSize
+                        left = offsetX + animatableX.value * cellSize,
+                        top = offsetY + animatableY.value * cellSize
                     ) {
                         drawTetrominoPiece(piece, cellSize, color)
                     }
@@ -277,10 +279,6 @@ private fun DrawScope.drawTetrominoPiece(
                 val hasBottom = getShapeBlock(r + 1, c)
                 val hasLeft = getShapeBlock(r, c - 1)
                 val hasRight = getShapeBlock(r, c + 1)
-                val hasTopLeft = getShapeBlock(r - 1, c - 1)
-                val hasTopRight = getShapeBlock(r - 1, c + 1)
-                val hasBottomLeft = getShapeBlock(r + 1, c - 1)
-                val hasBottomRight = getShapeBlock(r + 1, c + 1)
 
                 drawPieceBlock(
                     x = c * cellSize,
@@ -337,7 +335,6 @@ private fun DrawScope.drawPieceBlock(
     // doesn't duplicate or overlay those underlays.
 }
 
-@Suppress("UNUSED_PARAMETER")
 private fun DrawScope.drawCornerUnderlay(
     x: Float,
     y: Float,
