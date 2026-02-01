@@ -45,7 +45,7 @@ fun main() {
         }
     })
 
-    CanvasBasedWindow(canvasElementId = "ComposeTarget", title = "Tetris") {
+    CanvasBasedWindow(canvasElementId = "ComposeTarget", title = "Material Tetris") {
         MaterialTetrisTheme {
             GameScreen(
                 gameViewModel = viewModel,
