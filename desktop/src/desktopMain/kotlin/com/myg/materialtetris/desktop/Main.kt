@@ -33,7 +33,7 @@ fun main() = application {
 
     Window(
         onCloseRequest = ::exitApplication,
-        title = "Material Tetris",
+        title = "MaterialTetris",
         state = rememberWindowState(width = 500.dp, height = 700.dp),
         icon = icon,
         onKeyEvent = { event ->
