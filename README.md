@@ -29,16 +29,39 @@ Un juego de Tetris moderno con Material Design 3, construido con Kotlin Multipla
 ## 📦 Compilar
 
 ### Web
+
 ```bash
 ./gradlew :web:wasmJsBrowserDevelopmentRun
 ```
 
 ### Desktop
+
 ```bash
 ./gradlew :desktop:run
 ```
 
+### Android
+
+Ejecutar en un dispositivo o emulador con la build de debug:
+
+```bash
+./gradlew :app:installDebug
+```
+
+Generar el APK listo para distribuir (carpeta `app/build/outputs/apk/release/`):
+
+```bash
+./gradlew :app:assembleRelease
+```
+
+### Instalador Windows (MSI)
+
+```bash
+./gradlew :desktop:packageReleaseMsi
+```
+
 ### Producción Web
+
 ```bash
 ./gradlew :web:wasmJsBrowserDistribution
 ```
